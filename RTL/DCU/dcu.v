@@ -10,9 +10,19 @@ module dcu (
     input                                  pfu_j_b_en_i,
     output reg                             dcu_rdy_o,
 
+
+    //************ RFU ************//
+    input         [XLEN-1:0]               rfu_rs1_i,
+    input         [XLEN-1:0]               rfu_rs2_i,
+
+
     //*********** DPU *************//
     output reg                             dcu_vld_o,
     input                                  dpu_rdy_i,
+    output reg    [OP0_WIDTH-1:0]          dcu_op0_o,
+    output reg    [OP1_WIDTH-1:0]          dcu_op1_o,
+    output reg    [EXPAND_WITDH-1:0]       dcu_op0_exp_o, //opration 0 expand
+    output reg    [EXPAND_WITDH-1:0]       dcu_op1_exp_o, //opration 1 expand
     output reg    [GHSR_WIDTH-1:0]         dcu_ghsr_o,
     output reg    [INST_WIDTH-1:0]         dcu_inst_o,
     output reg    [DCU_PC_WIDTH-1:0]       dcu_pc_o,
@@ -21,12 +31,14 @@ module dcu (
     //*********** STAGE CTRL **********//
     input                                  stc_stall_i,
     input                                  stc_redirect_i,
-    input          [STC_PC_WIDTH-1:0]      stc_pc_i,
+    input         [STC_PC_WIDTH-1:0]       stc_pc_i,
 
     //*********** REGISTER FILE *************//
-    output reg       [XLEN-1:0]            dcu_rs1_o,
-    output reg       [XLEN-1:0]            dcu_rs2_o,
-    output reg                             dcu_wr_o             
+    output        [XLEN-1:0]               dcu_rs1_o,
+    output        [XLEN-1:0]               dcu_rs2_o,
+    output                                 dcu_rs1_wr_o,
+    output                                 dcu_rs2_wr_o
+
 
 );
 
@@ -37,7 +49,9 @@ parameter      OP_INT_I     =   7'b001_0011,  //ADDI...
                OP_LOAD      =   7'b000_0011,  //LB
                OP_IMM       =   7'b011_0111,  //LUI AUIPC
                OP_FENCE     =   7'b000_1111,  //FENCE
-               OP_SYSE      =   7'b111_0011;  //ECALL...
+               OP_SYSE      =   7'b111_0011,  //ECALL...
+               OP_J_B       =   7'b110_0011,  //B and JALR
+               OP_JAL       =   7'b110_1111;  // JAL
 
 //funct3 decode  INT_I
 parameter      ADDI         =   3'b000,
@@ -47,10 +61,70 @@ parameter      ADDI         =   3'b000,
                ORI          =   3'b110,
                ANDI         =   3'b111,
                SLLI         =   3'b001,
-               SRI          =   3'b101;   //SRLI SRAI               
+               SRLI_SRAI    =   3'b101;   //SRLI SRAI               
+
+
+//funct3 decode  INT_R
+parameter      ADD_SUB      =   3'b000,   //ADD OR SUB
+               SLL          =   3'b001,   
+               SLT          =   3'b010, 
+               SLTU         =   3'b011,
+               XOR          =   3'b100,
+               SRL_SRA      =   3'b101,   //SRL SRA
+               OR           =   3'b110,
+               AND          =   3'b111;
+//funct3 decode LOAD
+parameter      LB           =   3'b000,
+               LH           =   3'b001,
+               LW           =   3'b010,
+               LBU          =   3'b100,
+               LHU          =   3'b101;
+
+//funct3 decode STORE
+parameter      SB           =   3'b000,
+               SH           =   3'b001,
+               SW           =   3'b010;
 
 
 
+//funct3  decode Branch
+parameter      BEQ          =   3'b000,
+               BNE          =   3'b001,
+               BLT          =   3'b100,
+               BGE          =   3'b101,
+               BLTU         =   3'b100,
+               BGEU         =   3'b111;
+
+//funct3  decode JALR
+parameter      JALR         =   3'b000;
+
+wire    [OP_WIDTH-1:0]           opcode    = pfu_inst_i[OPCODE_POS1:OPCODE_POS0];
+wire    [RD_WIDTH-1:0]           rd        = pfu_inst_i[RD_POS1:RD_POS0];  //reg destination
+wire    [FUNCT3_WIDTH-1:0]       funct3    = pfu_inst_i[FUNCT3_POS1:FUNCT3_POS0];
+wire    [RS1_WIDTH-1:0]          rs1       = pfu_inst_i[RS1_POS1:RS1_POS0];
+wire    [RS2_WIDTH-1:0]          rs2       = pfu_inst_i[RS2_POS1:RS2_POS0];
+wire    [FUNCT7_WIDTH-1:0]       funct7    = pfu_inst_i[FUNCT7_POS1:FUNCT7_POS0];
+wire    [I_IMM_WIDTH-1:0]        i_imm     = pfu_inst_i[I_IMM_POS1:I_IMM_POS0];
+wire    [S_IMM_WIDTH-1:0]        s_imm     = pfu_inst_i[S_IMM_POS1:S_IMM_POS0];
+wire    [B_IMM_WIDTH-1:0]        b_imm     = pfu_inst_i[B_IMM_POS1:B_IMM_POS0];
+wire    [U_IMM_WIDTH-1:0]        u_imm     = pfu_inst_i[U_IMM_POS1:U_IMM_POS0];
+wire    [J_IMM_WIDTH-1:0]        j_imm     = pfu_inst_i[J_IMM_POS1:J_IMM_POS0];
+
+
+
+//******************* Register read decode ************************//
+//CS  TODO for power consumtion 
+assign    dcu_rs1_o          = rs1;
+assign    dcu_rs2_o          = rs2;
+assign    dcu_rs1_wr_o       = 1'b0;
+assign    dcu_rs2_wr_o       = 1'b0;
+
+
+always@(opcode)begin
+    case(opcode)
+        LUI:begin
+                dcu_op0_o    = 
+            
 
 
 
